@@ -37,12 +37,12 @@ async def handle_callback(query: CallbackQuery):
     await set_loading_message(query.message)
     if query.data == "today":
         date = datetime.datetime.today()
-        timetable = get_timetable(date)
+        timetable = await get_timetable(date)
         await bot.edit_message_text(f"Расписание на сегодня:\n\n{timetable}", query.message.chat.id, query.message.id,
                                     reply_markup=return_markup, parse_mode="HTML")
     elif query.data == "tomorrow":
         date = datetime.datetime.today() + datetime.timedelta(days=1)
-        timetable = get_timetable(date)
+        timetable = await get_timetable(date)
         await bot.edit_message_text(f"Расписание на завтра:\n\n{timetable}", query.message.chat.id, query.message.id,
                                     reply_markup=return_markup, parse_mode="HTML")
     elif query.data == "return":

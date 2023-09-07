@@ -1,5 +1,5 @@
 import bs4
-from requests import get
+import aiohttp
 from bs4 import BeautifulSoup
 from telebot.formatting import hbold
 
@@ -9,14 +9,17 @@ from weekdays_utils import WeekType, get_week_type, get_weekday_name
 from timetable_utils import Class, DayTimetable
 
 
-def get_timetable(query_date: datetime.datetime):
-    response = get(TIMETABLE_URL)
+async def get_timetable(query_date: datetime.datetime):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(TIMETABLE_URL) as session_response:
+            response = session_response
 
-    if response.status_code != 200:
-        print(f"Error while getting timetable. Status code - {response.status_code}")
-        return "Ошибка! Уже исправляем!"
+            if response.status != 200:
+                print(f"Error while getting timetable. Status code - {response.status}")
+                return "Ошибка! Уже исправляем!"
 
-    html = response.text
+            html = await response.text()
+
     soup = BeautifulSoup(html, "html.parser")
     tables: list[bs4.Tag] = soup.find_all(attrs={"class": "customized timetable"})
     week_type = get_week_type(query_date)
@@ -47,7 +50,7 @@ def get_timetable(query_date: datetime.datetime):
         result += "Выходной!"
         return result
 
-    changes = get_timetable_changes(query_date)
+    changes = await get_timetable_changes(query_date)
     result += "\n\n"
     result += changes
     return result

@@ -1,5 +1,6 @@
 import datetime
 from typing import Generator
+import aiohttp
 
 import openpyxl.cell
 from openpyxl.reader.excel import load_workbook
@@ -12,19 +13,31 @@ import config
 from timetable_utils import ChangedClass
 
 
-def get_timetable_changes(date: datetime.datetime) -> str:
-    response = get(config.TIMETABLE_CHANGES_URL)
-    changes_file_name = "changes.xlsx"
+no_changes_text = "Изменений нет."
+no_changes_yet_text = "Изменения пока что не сделали."
+changes_file_name = "changes.xlsx"
 
-    if response.status_code == 200:
-        with open(changes_file_name, "wb") as changes_table_file:
-            changes_table_file.write(response.content)
-    else:
-        print(f"Error while getting changes file. Status code: {response.status_code}")
+
+async def get_timetable_changes(date: datetime.datetime) -> str:
+    async with aiohttp.ClientSession() as session:
+        async with session.get(config.TIMETABLE_CHANGES_URL) as session_response:
+            response = session_response
+
+            if response.status == 200:
+                with open(changes_file_name, "wb") as changes_table_file:
+                    changes_table_file.write(await response.read())
+            else:
+                print(f"Error while getting changes file. Status code: {response.status}")
+                return "Ошибка при получении изменений в расписании на стороне бота. Уже исправляем."
 
     changes_workbook: Workbook = load_workbook(changes_file_name, read_only=True)
     sheet_name = date_to_sheet_name(date)
-    changes_sheet: Worksheet = changes_workbook[sheet_name]
+
+    try:
+        changes_sheet: Worksheet = changes_workbook[sheet_name]
+    except KeyError:
+        return hbold(no_changes_yet_text)
+
     rows_with_changes: list[int] = list()
     rows_iterator: Generator[tuple[openpyxl.cell.Cell], None, None] = changes_sheet.iter_rows(min_row=1, max_row=100,
                                                                                               min_col=2, max_col=2)
@@ -34,7 +47,7 @@ def get_timetable_changes(date: datetime.datetime) -> str:
                 rows_with_changes.append(cell.row)
 
     if len(rows_with_changes) == 0:
-        return hbold("Изменений нет.")
+        return hbold(no_changes_text)
 
     result = hbold("Изменения в расписании:\n\n")
 
